@@ -1,20 +1,28 @@
+import os
 import numpy
 from collections import Counter
 from keras.preprocessing.sequence import pad_sequences
 import pickle
 import platform
 
+project_path = os.path.dirname(__file__)
+
+train_data_path = os.path.normpath(os.path.join(project_path, 'data/train_data.data'))
+test_data_path = os.path.normpath(os.path.join(project_path, 'data/test_data.data'))
+
+config_path = os.path.normpath(os.path.join(project_path, 'model/config.pkl'))
+
 
 def load_data():
-    train = _parse_data(open('data/train_data.data', 'rb'))
-    test = _parse_data(open('data/test_data.data', 'rb'))
+    train = _parse_data(open(train_data_path, 'rb'))
+    test = _parse_data(open(test_data_path, 'rb'))
 
     word_counts = Counter(row[0].lower() for sample in train for row in sample)
-    vocab = [w for w, f in iter(word_counts.items()) if f >= 2]
+    vocab = ["<unk>"] + [w for w, f in iter(word_counts.items()) if f >= 2]
     chunk_tags = ['O', 'B-PER', 'I-PER', 'B-LOC', 'I-LOC', "B-ORG", "I-ORG"]
 
     # save initial config data
-    with open('model/config.pkl', 'wb') as outp:
+    with open(config_path, 'wb') as outp:
         pickle.dump((vocab, chunk_tags), outp)
 
     train = _process_data(train, vocab, chunk_tags)
@@ -43,7 +51,7 @@ def _process_data(data, vocab, chunk_tags, maxlen=None, onehot=False):
     if maxlen is None:
         maxlen = max(len(s) for s in data)
     word2idx = dict((w, i) for i, w in enumerate(vocab))
-    x = [[word2idx.get(w[0].lower(), 1) for w in s] for s in data]  # set to <unk> (index 1) if not in vocab
+    x = [[word2idx.get(w[0].lower(), 0) for w in s] for s in data]  # set to <unk> (index 0) if not in vocab
 
     y_chunk = [[chunk_tags.index(w[1]) for w in s] for s in data]
 
@@ -60,7 +68,7 @@ def _process_data(data, vocab, chunk_tags, maxlen=None, onehot=False):
 
 def process_data(data, vocab, maxlen=100):
     word2idx = dict((w, i) for i, w in enumerate(vocab))
-    x = [word2idx.get(w[0].lower(), 1) for w in data]
+    x = [word2idx.get(w[0].lower(), 0) for w in data]
     length = len(x)
     x = pad_sequences([x], maxlen)  # left padding
     return x, length
